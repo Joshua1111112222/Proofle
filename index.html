@@ -1,0 +1,927 @@
+<!DOCTYPE html>
+<html lang="en" class="dark">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Proofle Suite - Daily Math & Geometry Arcade</title>
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0fdfa',
+                            500: '#14b8a6',
+                            600: '#0d9488',
+                            900: '#134e4a',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap');
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #090d16;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #1e293b;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #334155;
+        }
+        /* Wordle tile flip animation */
+        .tile-flip {
+            animation: flip 0.5s ease forwards;
+        }
+        @keyframes flip {
+            0% { transform: rotateX(0deg); }
+            50% { transform: rotateX(90deg); }
+            100% { transform: rotateX(0deg); }
+        }
+        /* Pulse glow for active interactive items */
+        .glow-cyan {
+            box-shadow: 0 0 15px -3px rgba(6, 182, 212, 0.4);
+        }
+        .glow-emerald {
+            box-shadow: 0 0 15px -3px rgba(16, 185, 129, 0.4);
+        }
+    </style>
+</head>
+<body class="bg-slate-950 text-slate-100 min-h-screen flex flex-col justify-between selection:bg-teal-500 selection:text-slate-950">
+
+    <!-- CANVAS FOR CONFETTI EFFECT -->
+    <canvas id="confetti-canvas" class="fixed inset-0 pointer-events-none z-50"></canvas>
+
+    <!-- TOP HEADER / NAVBAR -->
+    <header className="border-b border-slate-800/80 bg-slate-900/80 backdrop-blur-md sticky top-0 z-40 px-4 py-3">
+        <div class="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-3">
+            <div class="flex items-center space-x-3">
+                <div class="bg-gradient-to-tr from-cyan-500 to-teal-400 p-2.5 rounded-xl shadow-lg shadow-cyan-500/20">
+                    <i data-lucide="shield-check" class="w-6 h-6 text-slate-950 stroke-[2.5]"></i>
+                </div>
+                <div>
+                    <h1 class="text-xl font-black tracking-wider bg-gradient-to-r from-cyan-400 via-teal-300 to-indigo-400 bg-clip-text text-transparent flex items-center gap-2">
+                        PROOFLE <span class="text-[10px] px-2 py-0.5 rounded-full bg-cyan-500/10 text-cyan-400 border border-cyan-500/30 tracking-normal font-bold">ARCADE</span>
+                    </h1>
+                    <p class="text-xs text-slate-400 hidden sm:block">AI-Powered Dynamic Geometry & Math Games</p>
+                </div>
+            </div>
+
+            <!-- TABS -->
+            <nav class="flex items-center bg-slate-900 p-1.5 rounded-xl border border-slate-800 w-full sm:w-auto justify-center">
+                <button id="tab-proofle" onclick="switchTab('proofle')" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-gradient-to-r from-cyan-500 to-teal-600 text-white shadow-md shadow-cyan-950/40">
+                    <i data-lucide="layers" class="w-4 h-4"></i>
+                    <span>Proofle</span>
+                </button>
+                <button id="tab-wordle" onclick="switchTab('wordle')" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-slate-200">
+                    <i data-lucide="grid" class="w-4 h-4"></i>
+                    <span>Wordle</span>
+                </button>
+                <button id="tab-krillion" onclick="switchTab('krillion')" class="flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-slate-200">
+                    <i data-lucide="trophy" class="w-4 h-4"></i>
+                    <span>Krillion</span>
+                </button>
+            </nav>
+
+            <!-- STATS & API KEY CONTROLS -->
+            <div class="flex items-center space-x-3 text-xs">
+                <div class="flex items-center space-x-3 px-3 py-1.5 bg-slate-900 rounded-xl border border-slate-800">
+                    <div class="flex items-center text-amber-400 font-bold" title="Daily Streak">
+                        <i data-lucide="flame" class="w-4 h-4 mr-1 text-amber-400 fill-amber-400"></i>
+                        <span id="stat-streak">0</span>
+                    </div>
+                    <div class="w-px h-3 bg-slate-800"></div>
+                    <div class="flex items-center text-emerald-400 font-bold" title="Total Points">
+                        <i data-lucide="award" class="w-4 h-4 mr-1 text-emerald-400"></i>
+                        <span id="stat-score">0</span>
+                    </div>
+                </div>
+
+                <button onclick="toggleKeyModal()" id="api-key-btn" class="p-2 rounded-xl border border-slate-800 bg-slate-900 text-slate-400 hover:text-cyan-400 transition-all" title="Gemini API Key Settings">
+                    <i data-lucide="key" class="w-4 h-4"></i>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- API KEY MODAL -->
+    <div id="key-modal" class="hidden fixed inset-0 z-50 bg-slate-950/80 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-slate-900 border border-slate-800 rounded-2xl max-w-md w-full p-6 shadow-2xl relative">
+            <button onclick="toggleKeyModal()" class="absolute top-4 right-4 text-slate-400 hover:text-white">
+                <i data-lucide="x" class="w-5 h-5"></i>
+            </button>
+            <div class="flex items-center space-x-3 mb-4">
+                <div class="p-2.5 bg-cyan-500/10 text-cyan-400 rounded-xl border border-cyan-500/20">
+                    <i data-lucide="sparkles" class="w-6 h-6"></i>
+                </div>
+                <div>
+                    <h3 class="text-base font-bold text-white">Gemini AI Integration</h3>
+                    <p class="text-xs text-slate-400">Fresh daily dynamic content generation</p>
+                </div>
+            </div>
+            <p class="text-xs text-slate-300 leading-relaxed bg-slate-950 p-3.5 rounded-xl border border-slate-800 mb-4">
+                Proofle Suite comes with built-in daily math puzzles out-of-the-box! Enter your Gemini API key below to unlock continuous, fresh AI-generated daily proofs and Krillion trivia sets.
+            </p>
+            <input type="password" id="gemini-key-input" placeholder="Enter API Key (Optional)..." class="w-full bg-slate-950 border border-slate-800 rounded-xl px-4 py-2.5 text-xs text-slate-100 focus:outline-none focus:border-cyan-500 mb-4" />
+            <div class="flex justify-between items-center">
+                <button onclick="generateFreshAIContent()" class="px-3 py-2 rounded-xl text-xs font-bold text-cyan-400 hover:bg-cyan-500/10 flex items-center gap-1">
+                    <i data-lucide="refresh-cw" class="w-3.5 h-3.5"></i> Regenerate AI Content Now
+                </button>
+                <button onclick="saveApiKey()" class="px-4 py-2 rounded-xl text-xs font-bold bg-cyan-500 hover:bg-cyan-400 text-slate-950 shadow-lg shadow-cyan-500/20">
+                    Save Key
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- MAIN GAME CONTAINER -->
+    <main class="flex-1 max-w-5xl w-full mx-auto p-4 md:p-6">
+        
+        <!-- ================= MODE 1: GEOMETRY PROOFLE ================= -->
+        <section id="game-proofle" class="space-y-6">
+            <div class="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 bg-slate-900/60 p-4 rounded-2xl border border-slate-800">
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-cyan-500/10 text-cyan-400 border border-cyan-500/20" id="proof-difficulty">MEDIUM</span>
+                        <h2 class="text-lg font-bold text-white" id="proof-title">Loading Geometry Proof...</h2>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-1">Reconstruct the multi-step geometric proof by pairing matching logical Statements with Reasons.</p>
+                </div>
+                <button onclick="resetProofle()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-semibold flex items-center space-x-1.5 transition-all">
+                    <i data-lucide="rotate-ccw" class="w-3.5 h-3.5"></i>
+                    <span>Reset Steps</span>
+                </button>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- SVG Diagram & Proof Info -->
+                <div class="lg:col-span-5 space-y-4">
+                    <div class="bg-slate-900 rounded-2xl p-4 border border-slate-800 shadow-xl flex flex-col justify-between">
+                        <div class="flex items-center justify-between mb-3">
+                            <span class="text-xs font-bold text-slate-400 flex items-center gap-1.5">
+                                <i data-lucide="compass" class="w-4 h-4 text-cyan-400"></i> Diagram Visualization
+                            </span>
+                            <span class="text-[10px] bg-slate-800 text-slate-300 px-2 py-0.5 rounded-md" id="diagram-type-tag">2D Geometry</span>
+                        </div>
+                        
+                        <!-- Dynamic SVG Container -->
+                        <div id="svg-container" class="w-full h-52 bg-slate-950 rounded-xl border border-slate-800/80 flex items-center justify-center p-2 relative overflow-hidden">
+                            <!-- SVG Rendered Here -->
+                        </div>
+
+                        <!-- Given & To Prove -->
+                        <div class="mt-4 space-y-2 text-xs bg-slate-950/60 p-3 rounded-xl border border-slate-800/60">
+                            <div>
+                                <span class="text-slate-400 font-bold uppercase text-[10px] tracking-wider">Given:</span>
+                                <div id="proof-given-list" class="text-cyan-300 font-medium mt-0.5">--</div>
+                            </div>
+                            <div class="pt-2 border-t border-slate-800">
+                                <span class="text-slate-400 font-bold uppercase text-[10px] tracking-wider">To Prove:</span>
+                                <div id="proof-target" class="text-emerald-400 font-bold mt-0.5">--</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Hint / AI Explanation Box -->
+                    <div class="bg-slate-900/50 p-4 rounded-2xl border border-slate-800/80 text-xs text-slate-300 space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="font-bold text-slate-200 flex items-center gap-1.5">
+                                <i data-lucide="lightbulb" class="w-4 h-4 text-amber-400"></i> Geometry Tip
+                            </span>
+                            <button onclick="toggleHint()" class="text-[11px] text-cyan-400 hover:underline">Reveal Hint</button>
+                        </div>
+                        <p id="hint-text" class="text-slate-400 italic hidden">Look for shared sides (Reflexive Property) or angle pairs formed by intersecting or parallel lines.</p>
+                    </div>
+                </div>
+
+                <!-- Proof Reconstruction Board -->
+                <div class="lg:col-span-7 space-y-4">
+                    <div class="bg-slate-900 rounded-2xl p-5 border border-slate-800 shadow-xl space-y-4">
+                        <div class="flex items-center justify-between">
+                            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+                                <i data-lucide="list-checks" class="w-4 h-4 text-emerald-400"></i> Proof Steps Sequence
+                            </h3>
+                            <span id="proof-status-badge" class="text-xs px-2.5 py-0.5 rounded-full font-bold bg-slate-800 text-slate-400">In Progress</span>
+                        </div>
+
+                        <!-- Step Slots -->
+                        <div id="proof-steps-container" class="space-y-3">
+                            <!-- Dynamic Proof Rows -->
+                        </div>
+
+                        <!-- Action Buttons -->
+                        <div class="pt-3 border-t border-slate-800 flex items-center justify-between">
+                            <button onclick="checkProofleSolution()" class="w-full sm:w-auto px-6 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-black text-xs uppercase tracking-wider shadow-lg shadow-emerald-500/20 transition-all flex items-center justify-center gap-2">
+                                <i data-lucide="check-circle-2" class="w-4 h-4"></i> Validate Proof Logic
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ================= MODE 2: MATH WORDLE ================= -->
+        <section id="game-wordle" class="hidden max-w-md mx-auto space-y-6">
+            <div class="text-center space-y-1">
+                <h2 class="text-xl font-extrabold text-white tracking-wider">GEOMETRY WORDLE</h2>
+                <p class="text-xs text-slate-400">Guess today's secret 5-letter math or geometry term in 6 tries.</p>
+            </div>
+
+            <!-- Grid Container -->
+            <div id="wordle-grid" class="grid grid-rows-6 gap-2 my-4">
+                <!-- Rows dynamically injected -->
+            </div>
+
+            <!-- On-Screen Keyboard -->
+            <div id="wordle-keyboard" class="space-y-1.5 pt-2">
+                <!-- Keyboard keys injected -->
+            </div>
+        </section>
+
+        <!-- ================= MODE 3: KRILLION (RARITY MATH TRIVIA) ================= -->
+        <section id="game-krillion" class="hidden space-y-6">
+            <div class="bg-gradient-to-r from-purple-900/40 via-slate-900 to-indigo-900/40 p-5 rounded-2xl border border-purple-500/20 flex flex-col sm:flex-row items-center justify-between gap-4">
+                <div>
+                    <div class="flex items-center space-x-2">
+                        <span class="px-2.5 py-0.5 rounded-full text-[10px] font-extrabold uppercase bg-purple-500/20 text-purple-300 border border-purple-500/30">RARITY TRIVIA</span>
+                        <h2 class="text-lg font-bold text-white">Krillion Math Challenge</h2>
+                    </div>
+                    <p class="text-xs text-slate-400 mt-1">Answer rapidly before the timer runs out! Points scaled by time left and answer rarity.</p>
+                </div>
+                <!-- Countdown Timer -->
+                <div class="flex items-center space-x-3 bg-slate-950/80 px-4 py-2 rounded-xl border border-purple-500/30">
+                    <i data-lucide="clock" class="w-5 h-5 text-purple-400 animate-pulse"></i>
+                    <span id="krillion-timer" class="text-xl font-black text-purple-300 font-mono">20s</span>
+                </div>
+            </div>
+
+            <!-- Trivia Card -->
+            <div class="bg-slate-900 rounded-2xl p-6 border border-slate-800 shadow-xl space-y-6 relative overflow-hidden">
+                <div class="flex items-center justify-between text-xs text-slate-400">
+                    <span>Question <b text-white id="krillion-current-index">1</b> of 5</span>
+                    <span id="krillion-category-badge" class="px-2 py-0.5 rounded bg-slate-800 text-slate-300 font-medium">Category</span>
+                </div>
+
+                <h3 id="krillion-prompt" class="text-lg md:text-xl font-bold text-slate-100 leading-snug">
+                    Loading question prompt...
+                </h3>
+
+                <!-- Multiple Choice Options Grid -->
+                <div id="krillion-options-container" class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <!-- Option Buttons Injected Here -->
+                </div>
+
+                <div id="krillion-feedback-box" class="hidden p-4 rounded-xl border text-xs space-y-1">
+                    <!-- Feedback injected -->
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- FOOTER -->
+    <footer class="border-t border-slate-900 bg-slate-950 py-4 px-4 text-center text-xs text-slate-500">
+        <div class="max-w-6xl mx-auto flex flex-col sm:flex-row items-center justify-between gap-2">
+            <p>© Proofle Suite Daily Arcade • Dynamic Geometry & Logic Puzzles</p>
+            <p class="text-slate-600">Built with Vanilla JS, Tailwind & Gemini API</p>
+        </div>
+    </footer>
+
+    <!-- SCRIPT LOGIC -->
+    <script>
+        // =========================================================================
+        // GLOBAL STATE & STORAGE
+        // =========================================================================
+        const STORAGE_KEY_STATS = 'PROOFLE_STATS_V1';
+        const STORAGE_KEY_GEMINI = 'PROOFLE_GEMINI_KEY';
+
+        let userStats = {
+            streak: 0,
+            score: 0,
+            lastPlayedDate: '',
+            completedToday: { proofle: false, wordle: false, krillion: false }
+        };
+
+        let currentTab = 'proofle';
+        let geminiApiKey = '';
+
+        // FALLBACK DAILY DATA (Used offline or without Gemini Key)
+        const FALLBACK_PROOFS = [
+            {
+                id: 'proof-sas',
+                title: 'Triangle Congruence (SAS)',
+                difficulty: 'EASY',
+                given: ['Segment AB ≅ Segment CD', 'Segment AB ∥ Segment CD'],
+                toProve: '△ABC ≅ △CDA',
+                svgType: 'parallel_triangles',
+                hint: 'Remember that parallel lines cut by a transversal form congruent alternate interior angles.',
+                steps: [
+                    { statement: 'AB ≅ CD', reason: 'Given' },
+                    { statement: 'AB ∥ CD', reason: 'Given' },
+                    { statement: '∠BAC ≅ ∠DCA', reason: 'Alternate Interior Angles Theorem' },
+                    { statement: 'AC ≅ CA', reason: 'Reflexive Property of Congruence' },
+                    { statement: '△ABC ≅ △CDA', reason: 'SAS Congruence Postulate' }
+                ],
+                statementPool: ['AB ≅ CD', 'AB ∥ CD', '∠BAC ≅ ∠DCA', 'AC ≅ CA', '△ABC ≅ △CDA', 'BC ≅ DA', '∠B ≅ ∠D'],
+                reasonPool: ['Given', 'Alternate Interior Angles Theorem', 'Reflexive Property of Congruence', 'SAS Congruence Postulate', 'CPCTC', 'Vertical Angles Theorem']
+            },
+            {
+                id: 'proof-vert',
+                title: 'Vertical Angle Congruence Proof',
+                difficulty: 'MEDIUM',
+                given: ['Line AC intersects Line BD at E', 'AE ≅ CE'],
+                toProve: '△ABE ≅ △CDE (given BE ≅ DE)',
+                svgType: 'intersecting_lines',
+                hint: 'Angles opposite each other when two lines cross are vertical angles and congruent.',
+                steps: [
+                    { statement: 'AE ≅ CE', reason: 'Given' },
+                    { statement: 'BE ≅ DE', reason: 'Given' },
+                    { statement: '∠AEB ≅ ∠CED', reason: 'Vertical Angles Theorem' },
+                    { statement: '△ABE ≅ △CDE', reason: 'SAS Congruence Postulate' }
+                ],
+                statementPool: ['AE ≅ CE', 'BE ≅ DE', '∠AEB ≅ ∠CED', '△ABE ≅ △CDE', '∠A ≅ ∠C', 'AC ⊥ BD'],
+                reasonPool: ['Given', 'Vertical Angles Theorem', 'SAS Congruence Postulate', 'ASA Congruence Postulate', 'Definition of Midpoint']
+            }
+        ];
+
+        const WORDLE_DICTIONARY = ['ANGLE', 'PROOF', 'RADII', 'CHORD', 'PLANE', 'SCALE', 'SOLIDS', 'CURVE', 'LOCUS', 'AXIS', 'POINT', 'APEXS'];
+        let dailyWordleAnswer = 'PROOF';
+
+        const FALLBACK_KRILLION = [
+            {
+                prompt: "Which geometry postulate states that through any two points there is exactly one line?",
+                category: "Axioms",
+                options: ["Line Postulate", "Parallel Postulate", "Segment Addition", "Distance Postulate"],
+                answerIndex: 0,
+                rarityScore: 100
+            },
+            {
+                prompt: "What is the sum of exterior angles for ANY convex polygon?",
+                category: "Polygons",
+                options: ["180°", "360°", "540°", "Depends on n"],
+                answerIndex: 1,
+                rarityScore: 150
+            },
+            {
+                prompt: "Which mathematician is famous for the 5th Parallel Postulate?",
+                category: "History",
+                options: ["Euclid", "Pythagoras", "Archimedes", "Gauss"],
+                answerIndex: 0,
+                rarityScore: 120
+            },
+            {
+                prompt: "What is a 9-sided regular polygon officially called?",
+                category: "Shapes",
+                options: ["Nonagon", "Heptagon", "Decagon", "Octagon"],
+                answerIndex: 0,
+                rarityScore: 200
+            }
+        ];
+
+        // =========================================================================
+        // INITIALIZATION
+        // =========================================================================
+        window.addEventListener('DOMContentLoaded', () => {
+            loadStorageData();
+            lucide.createIcons();
+            initProofleGame();
+            initWordleGame();
+            initKrillionGame();
+
+            // Set up daily word based on date
+            const dayOfYear = Math.floor((new Date() - new Date(new Date().getFullYear(), 0, 0)) / (1000 * 60 * 60 * 24));
+            dailyWordleAnswer = WORDLE_DICTIONARY[dayOfYear % WORDLE_DICTIONARY.length];
+        });
+
+        function loadStorageData() {
+            const savedStats = localStorage.getItem(STORAGE_KEY_STATS);
+            if (savedStats) {
+                userStats = JSON.parse(savedStats);
+            }
+            const savedKey = localStorage.getItem(STORAGE_KEY_GEMINI);
+            if (savedKey) {
+                geminiApiKey = savedKey;
+                document.getElementById('gemini-key-input').value = savedKey;
+            }
+            updateStatsUI();
+        }
+
+        function saveStorageData() {
+            localStorage.setItem(STORAGE_KEY_STATS, JSON.stringify(userStats));
+            updateStatsUI();
+        }
+
+        function updateStatsUI() {
+            document.getElementById('stat-streak').innerText = userStats.streak;
+            document.getElementById('stat-score').innerText = userStats.score;
+        }
+
+        function toggleKeyModal() {
+            const modal = document.getElementById('key-modal');
+            modal.classList.toggle('hidden');
+        }
+
+        function saveApiKey() {
+            const val = document.getElementById('gemini-key-input').value.trim();
+            geminiApiKey = val;
+            localStorage.setItem(STORAGE_KEY_GEMINI, val);
+            toggleKeyModal();
+            alert('Gemini API key saved! New dynamic content will now be available.');
+        }
+
+        function switchTab(tabId) {
+            currentTab = tabId;
+            ['proofle', 'wordle', 'krillion'].forEach(t => {
+                const sec = document.getElementById(`game-${t}`);
+                const btn = document.getElementById(`tab-${t}`);
+                if (t === tabId) {
+                    sec.classList.remove('hidden');
+                    btn.className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all bg-gradient-to-r from-cyan-500 to-teal-600 text-white shadow-md shadow-cyan-950/40";
+                } else {
+                    sec.classList.add('hidden');
+                    btn.className = "flex items-center space-x-1.5 px-3 py-1.5 rounded-lg text-xs font-bold transition-all text-slate-400 hover:text-slate-200";
+                }
+            });
+        }
+
+        // =========================================================================
+        // GEMINI API DYNAMIC CONTENT GENERATOR
+        // =========================================================================
+        async function callGemini(prompt, schema = null) {
+            if (!geminiApiKey) throw new Error("No API key available");
+
+            const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-3-flash-preview:generateContent?key=${geminiApiKey}`;
+            const payload = {
+                contents: [{ parts: [{ text: prompt }] }]
+            };
+
+            if (schema) {
+                payload.generationConfig = {
+                    responseMimeType: "application/json",
+                    responseSchema: schema
+                };
+            }
+
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!res.ok) throw new Error("Gemini API Request Failed");
+            const data = await res.json();
+            const text = data?.candidates?.[0]?.content?.parts?.[0]?.text;
+            return schema ? JSON.parse(text) : text;
+        }
+
+        async function generateFreshAIContent() {
+            if (!geminiApiKey) {
+                alert("Please enter a valid Gemini API Key first!");
+                return;
+            }
+
+            try {
+                // Request dynamic proof
+                const proofSchema = {
+                    type: "OBJECT",
+                    properties: {
+                        title: { type: "STRING" },
+                        difficulty: { type: "STRING" },
+                        given: { type: "ARRAY", items: { type: "STRING" } },
+                        toProve: { type: "STRING" },
+                        svgType: { type: "STRING" },
+                        hint: { type: "STRING" },
+                        steps: {
+                            type: "ARRAY",
+                            items: {
+                                type: "OBJECT",
+                                properties: {
+                                    statement: { type: "STRING" },
+                                    reason: { type: "STRING" }
+                                }
+                            }
+                        },
+                        statementPool: { type: "ARRAY", items: { type: "STRING" } },
+                        reasonPool: { type: "ARRAY", items: { type: "STRING" } }
+                    }
+                };
+
+                const aiProof = await callGemini(
+                    "Generate a high-school geometry proof problem with steps, distractor statements and reasons, given premises, and target to prove. svgType should be 'parallel_triangles' or 'intersecting_lines'.",
+                    proofSchema
+                );
+
+                if (aiProof && aiProof.steps) {
+                    currentProof = aiProof;
+                    renderProofleBoard();
+                    alert("Fresh AI Geometry Proof Loaded!");
+                    toggleKeyModal();
+                }
+            } catch (err) {
+                console.error(err);
+                alert("Could not generate AI proof. Check key or network. Using fallbacks.");
+            }
+        }
+
+        // =========================================================================
+        // MODE 1: PROOFLE GAME ENGINE
+        // =========================================================================
+        let currentProof = FALLBACK_PROOFS[0];
+        let userProofSelection = [];
+
+        function initProofleGame() {
+            // Pick proof based on day or fallback
+            currentProof = FALLBACK_PROOFS[Math.floor(Math.random() * FALLBACK_PROOFS.length)];
+            renderProofleBoard();
+        }
+
+        function renderProofleBoard() {
+            document.getElementById('proof-title').innerText = currentProof.title;
+            document.getElementById('proof-difficulty').innerText = currentProof.difficulty;
+            document.getElementById('proof-given-list').innerText = currentProof.given.join(' • ');
+            document.getElementById('proof-target').innerText = currentProof.toProve;
+            document.getElementById('hint-text').innerText = currentProof.hint;
+
+            // Render SVG
+            renderSVGDiagram(currentProof.svgType);
+
+            // Initialize User Selection Slots
+            userProofSelection = currentProof.steps.map(() => ({ statement: '', reason: '' }));
+            renderStepsSlots();
+        }
+
+        function renderSVGDiagram(type) {
+            const container = document.getElementById('svg-container');
+            if (type === 'intersecting_lines') {
+                container.innerHTML = `
+                    <svg class="w-full h-full" viewBox="0 0 300 180">
+                        <line x1="40" y1="30" x2="260" y2="150" stroke="#38bdf8" stroke-width="3"/>
+                        <line x1="40" y1="150" x2="260" y2="30" stroke="#38bdf8" stroke-width="3"/>
+                        <circle cx="150" cy="90" r="4" fill="#f43f5e"/>
+                        <text x="150" y="112" fill="#e2e8f0" font-size="12" font-weight="bold" text-anchor="middle">E</text>
+                        <text x="30" y="25" fill="#38bdf8" font-size="12">A</text>
+                        <text x="265" y="160" fill="#38bdf8" font-size="12">C</text>
+                        <text x="30" y="160" fill="#38bdf8" font-size="12">B</text>
+                        <text x="265" y="25" fill="#38bdf8" font-size="12">D</text>
+                        <line x1="85" y1="55" x2="95" y2="65" stroke="#10b981" stroke-width="2.5"/>
+                        <line x1="205" y1="115" x2="215" y2="125" stroke="#10b981" stroke-width="2.5"/>
+                    </svg>
+                `;
+            } else {
+                // Default: Parallel Triangles
+                container.innerHTML = `
+                    <svg class="w-full h-full" viewBox="0 0 320 180">
+                        <line x1="40" y1="40" x2="280" y2="40" stroke="#38bdf8" stroke-width="3"/>
+                        <line x1="40" y1="140" x2="280" y2="140" stroke="#38bdf8" stroke-width="3"/>
+                        <line x1="70" y1="40" x2="250" y2="140" stroke="#a855f7" stroke-width="3"/>
+                        <circle cx="70" cy="40" r="4" fill="#f43f5e"/>
+                        <text x="65" y="30" fill="#e2e8f0" font-size="12" font-weight="bold">A</text>
+                        <circle cx="250" cy="40" r="4" fill="#f43f5e"/>
+                        <text x="255" y="30" fill="#e2e8f0" font-size="12" font-weight="bold">B</text>
+                        <circle cx="70" cy="140" r="4" fill="#f43f5e"/>
+                        <text x="60" y="160" fill="#e2e8f0" font-size="12" font-weight="bold">D</text>
+                        <circle cx="250" cy="140" r="4" fill="#f43f5e"/>
+                        <text x="255" y="160" fill="#e2e8f0" font-size="12" font-weight="bold">C</text>
+                        <path d="M 140 35 L 148 40 L 140 45" fill="none" stroke="#fbbf24" stroke-width="2"/>
+                        <path d="M 140 135 L 148 140 L 140 145" fill="none" stroke="#fbbf24" stroke-width="2"/>
+                    </svg>
+                `;
+            }
+        }
+
+        function renderStepsSlots() {
+            const container = document.getElementById('proof-steps-container');
+            container.innerHTML = '';
+
+            userProofSelection.forEach((step, idx) => {
+                const row = document.createElement('div');
+                row.className = "p-3 bg-slate-950 rounded-xl border border-slate-800 space-y-2";
+
+                row.innerHTML = `
+                    <div class="flex items-center justify-between text-xs font-bold text-slate-400">
+                        <span>Step ${idx + 1}</span>
+                        <span id="step-status-${idx}" class="text-[10px]"></span>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <!-- Statement Select -->
+                        <div>
+                            <select onchange="updateStepSelection(${idx}, 'statement', this.value)" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-200 focus:border-cyan-500 outline-none">
+                                <option value="">-- Select Statement --</option>
+                                ${currentProof.statementPool.map(s => `<option value="${s}" ${step.statement === s ? 'selected' : ''}>${s}</option>`).join('')}
+                            </select>
+                        </div>
+                        <!-- Reason Select -->
+                        <div>
+                            <select onchange="updateStepSelection(${idx}, 'reason', this.value)" class="w-full bg-slate-900 border border-slate-800 rounded-lg p-2 text-xs text-slate-200 focus:border-cyan-500 outline-none">
+                                <option value="">-- Select Reason --</option>
+                                ${currentProof.reasonPool.map(r => `<option value="${r}" ${step.reason === r ? 'selected' : ''}>${r}</option>`).join('')}
+                            </select>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(row);
+            });
+        }
+
+        function updateStepSelection(stepIdx, field, value) {
+            userProofSelection[stepIdx][field] = value;
+        }
+
+        function resetProofle() {
+            userProofSelection = currentProof.steps.map(() => ({ statement: '', reason: '' }));
+            renderStepsSlots();
+            document.getElementById('proof-status-badge').innerText = 'In Progress';
+            document.getElementById('proof-status-badge').className = 'text-xs px-2.5 py-0.5 rounded-full font-bold bg-slate-800 text-slate-400';
+        }
+
+        function toggleHint() {
+            const h = document.getElementById('hint-text');
+            h.classList.toggle('hidden');
+        }
+
+        function checkProofleSolution() {
+            let correctCount = 0;
+            const total = currentProof.steps.length;
+
+            userProofSelection.forEach((step, idx) => {
+                const target = currentProof.steps[idx];
+                const badge = document.getElementById(`step-status-${idx}`);
+
+                const isStatementCorrect = step.statement === target.statement;
+                const isReasonCorrect = step.reason === target.reason;
+
+                if (isStatementCorrect && isReasonCorrect) {
+                    correctCount++;
+                    badge.innerText = '✓ Correct';
+                    badge.className = 'text-[10px] font-bold text-emerald-400';
+                } else {
+                    badge.innerText = '✗ Incorrect';
+                    badge.className = 'text-[10px] font-bold text-rose-400';
+                }
+            });
+
+            if (correctCount === total) {
+                document.getElementById('proof-status-badge').innerText = 'Proof Validated!';
+                document.getElementById('proof-status-badge').className = 'text-xs px-2.5 py-0.5 rounded-full font-bold bg-emerald-500/20 text-emerald-400 border border-emerald-500/30';
+                
+                triggerConfetti();
+                userStats.score += 150;
+                userStats.streak += 1;
+                saveStorageData();
+                alert('Congratulations! Proof logically completed! (+150 Points)');
+            } else {
+                alert(`Proof incomplete: ${correctCount}/${total} steps correct. Check your statements & reasons!`);
+            }
+        }
+
+        // =========================================================================
+        // MODE 2: WORDLE GAME ENGINE
+        // =========================================================================
+        let wordleGuesses = [];
+        let currentGuess = '';
+        const MAX_ATTEMPTS = 6;
+
+        function initWordleGame() {
+            renderWordleGrid();
+            renderWordleKeyboard();
+
+            window.addEventListener('keydown', handleWordleKeyPress);
+        }
+
+        function renderWordleGrid() {
+            const grid = document.getElementById('wordle-grid');
+            grid.innerHTML = '';
+
+            for (let r = 0; r < MAX_ATTEMPTS; r++) {
+                const row = document.createElement('div');
+                row.className = "grid grid-cols-5 gap-2";
+
+                for (let c = 0; c < 5; c++) {
+                    const tile = document.createElement('div');
+                    tile.id = `tile-${r}-${c}`;
+                    tile.className = "w-12 h-12 md:w-14 md:h-14 border-2 border-slate-800 rounded-xl flex items-center justify-center text-lg md:text-xl font-black uppercase text-white bg-slate-900 transition-all";
+                    
+                    if (wordleGuesses[r]) {
+                        const letter = wordleGuesses[r][c];
+                        tile.innerText = letter;
+                        const status = getWordleLetterStatus(r, c, letter);
+                        applyTileStyle(tile, status);
+                    } else if (r === wordleGuesses.length && currentGuess[c]) {
+                        tile.innerText = currentGuess[c];
+                        tile.classList.add('border-cyan-500');
+                    }
+                    row.appendChild(tile);
+                }
+                grid.appendChild(row);
+            }
+        }
+
+        function applyTileStyle(tile, status) {
+            tile.classList.add('tile-flip');
+            if (status === 'correct') {
+                tile.className += " bg-emerald-600 border-emerald-500 text-white";
+            } else if (status === 'present') {
+                tile.className += " bg-amber-600 border-amber-500 text-white";
+            } else {
+                tile.className += " bg-slate-800 border-slate-700 text-slate-400";
+            }
+        }
+
+        function getWordleLetterStatus(row, col, letter) {
+            if (dailyWordleAnswer[col] === letter) return 'correct';
+            if (dailyWordleAnswer.includes(letter)) return 'present';
+            return 'absent';
+        }
+
+        function renderWordleKeyboard() {
+            const keyboard = document.getElementById('wordle-keyboard');
+            const layout = [
+                ['Q','W','E','R','T','Y','U','I','O','P'],
+                ['A','S','D','F','G','H','J','K','L'],
+                ['ENTER','Z','X','C','V','B','N','M','DEL']
+            ];
+
+            keyboard.innerHTML = '';
+
+            layout.forEach(rowKeys => {
+                const row = document.createElement('div');
+                row.className = "flex justify-center space-x-1";
+
+                rowKeys.forEach(key => {
+                    const btn = document.createElement('button');
+                    btn.innerText = key;
+                    btn.onclick = () => processWordleInput(key);
+
+                    let keyWidth = "px-2.5 py-3 text-xs sm:text-sm min-w-[32px]";
+                    if (key === 'ENTER' || key === 'DEL') keyWidth = "px-3 py-3 text-[11px] font-bold min-w-[48px]";
+
+                    btn.className = `${keyWidth} bg-slate-800 hover:bg-slate-700 active:bg-slate-900 text-slate-200 rounded-lg font-bold uppercase transition-all shadow-md`;
+                    row.appendChild(btn);
+                });
+                keyboard.appendChild(row);
+            });
+        }
+
+        function handleWordleKeyPress(e) {
+            if (currentTab !== 'wordle') return;
+
+            if (e.key === 'Enter') processWordleInput('ENTER');
+            else if (e.key === 'Backspace') processWordleInput('DEL');
+            else if (/^[a-zA-Z]$/.test(e.key)) processWordleInput(e.key.toUpperCase());
+        }
+
+        function processWordleInput(key) {
+            if (wordleGuesses.length >= MAX_ATTEMPTS) return;
+
+            if (key === 'DEL') {
+                currentGuess = currentGuess.slice(0, -1);
+            } else if (key === 'ENTER') {
+                if (currentGuess.length !== 5) {
+                    alert('Word must be 5 letters!');
+                    return;
+                }
+                wordleGuesses.push(currentGuess);
+                
+                if (currentGuess === dailyWordleAnswer) {
+                    triggerConfetti();
+                    userStats.score += 100;
+                    saveStorageData();
+                    alert(`Brilliant! You guessed the daily math word ${dailyWordleAnswer}! (+100 Pts)`);
+                } else if (wordleGuesses.length === MAX_ATTEMPTS) {
+                    alert(`Game Over! Today's secret word was ${dailyWordleAnswer}`);
+                }
+                currentGuess = '';
+            } else if (currentGuess.length < 5) {
+                currentGuess += key;
+            }
+
+            renderWordleGrid();
+        }
+
+        // =========================================================================
+        // MODE 3: KRILLION TRIVIA ENGINE
+        // =========================================================================
+        let krillionQuestions = FALLBACK_KRILLION;
+        let krillionIndex = 0;
+        let krillionTimer = 20;
+        let timerInterval = null;
+
+        function initKrillionGame() {
+            loadKrillionQuestion();
+        }
+
+        function loadKrillionQuestion() {
+            clearInterval(timerInterval);
+            krillionTimer = 20;
+            document.getElementById('krillion-timer').innerText = `${krillionTimer}s`;
+
+            const q = krillionQuestions[krillionIndex];
+            document.getElementById('krillion-current-index').innerText = krillionIndex + 1;
+            document.getElementById('krillion-category-badge').innerText = q.category;
+            document.getElementById('krillion-prompt').innerText = q.prompt;
+
+            const container = document.getElementById('krillion-options-container');
+            container.innerHTML = '';
+            document.getElementById('krillion-feedback-box').classList.add('hidden');
+
+            q.options.forEach((opt, idx) => {
+                const btn = document.createElement('button');
+                btn.className = "p-4 rounded-xl bg-slate-950 border border-slate-800 hover:border-purple-500/50 hover:bg-purple-900/10 text-left font-semibold text-slate-200 text-xs sm:text-sm transition-all flex items-center justify-between";
+                btn.innerHTML = `
+                    <span>${opt}</span>
+                    <i data-lucide="chevron-right" class="w-4 h-4 text-purple-400"></i>
+                `;
+                btn.onclick = () => answerKrillion(idx);
+                container.appendChild(btn);
+            });
+            lucide.createIcons();
+
+            // Start countdown
+            timerInterval = setInterval(() => {
+                krillionTimer--;
+                document.getElementById('krillion-timer').innerText = `${krillionTimer}s`;
+                if (krillionTimer <= 0) {
+                    clearInterval(timerInterval);
+                    answerKrillion(-1); // Timeout
+                }
+            }, 1000);
+        }
+
+        function answerKrillion(selectedIdx) {
+            clearInterval(timerInterval);
+            const q = krillionQuestions[krillionIndex];
+            const feedbackBox = document.getElementById('krillion-feedback-box');
+            feedbackBox.classList.remove('hidden');
+
+            const isCorrect = selectedIdx === q.answerIndex;
+
+            if (isCorrect) {
+                const earnedPoints = q.rarityScore + (krillionTimer * 5);
+                userStats.score += earnedPoints;
+                saveStorageData();
+
+                feedbackBox.className = "p-4 rounded-xl border border-emerald-500/30 bg-emerald-500/10 text-xs space-y-1 text-emerald-300";
+                feedbackBox.innerHTML = `<b>✓ Correct!</b> Earned ${earnedPoints} Rarity & Time Bonus points.`;
+            } else {
+                feedbackBox.className = "p-4 rounded-xl border border-rose-500/30 bg-rose-500/10 text-xs space-y-1 text-rose-300";
+                feedbackBox.innerHTML = `<b>✗ Incorrect!</b> Correct answer: ${q.options[q.answerIndex]}`;
+            }
+
+            setTimeout(() => {
+                krillionIndex = (krillionIndex + 1) % krillionQuestions.length;
+                loadKrillionQuestion();
+            }, 2500);
+        }
+
+        // =========================================================================
+        // CONFETTI CANVAS EFFECT
+        // =========================================================================
+        function triggerConfetti() {
+            const canvas = document.getElementById('confetti-canvas');
+            const ctx = canvas.getContext('2d');
+            canvas.width = window.innerWidth;
+            canvas.height = window.innerHeight;
+
+            const particles = Array.from({ length: 80 }).map(() => ({
+                x: Math.random() * canvas.width,
+                y: -10,
+                color: ['#06b6d4', '#10b981', '#a855f7', '#fbbf24'][Math.floor(Math.random() * 4)],
+                size: Math.random() * 8 + 4,
+                speedY: Math.random() * 4 + 2,
+                speedX: (Math.random() - 0.5) * 2
+            }));
+
+            let frame = 0;
+            function animate() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                particles.forEach(p => {
+                    p.y += p.speedY;
+                    p.x += p.speedX;
+                    ctx.fillStyle = p.color;
+                    ctx.fillRect(p.x, p.y, p.size, p.size);
+                });
+                frame++;
+                if (frame < 120) requestAnimationFrame(animate);
+                else ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+            animate();
+        }
+    </script>
+</body>
+</html>
